@@ -97,3 +97,4 @@ Usage: Valid command-line arguments are:
 
 [^1]: [SFM3100 Low Pressure Drop Analog Flow Meter](https://sensirion.com/media/documents/27637785/626A538D/GF_DS_SFM3100.pdf).
 
+[^2]: [GNU Scientific Library](https://www.gnu.org/software/gsl/).
