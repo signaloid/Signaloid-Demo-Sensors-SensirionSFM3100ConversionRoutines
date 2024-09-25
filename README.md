@@ -5,7 +5,7 @@
 Example demonstrating real-time output uncertainty estimation for calibrated ADC values from the SFM3100 sensor[^1].
 
 ## Introduction
-The SFM3100 is a Low Pressure Drop Analog Flow Meter.
+The SFM3100 is a low pressure drop analog flow meter.
 
 ## Getting started
 
