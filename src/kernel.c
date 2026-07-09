@@ -20,29 +20,21 @@
  *	SOFTWARE.
  */
 
-#pragma once
+#include <math.h>
+#include "kernel.h"
 
-#include "common.h"
 
-typedef struct
+double
+SensirionSFM3100_calculateOutput(double * inputVariables, double *  outputVariables)
 {
-	CommonCommandLineArguments common;
-} CommandLineArguments;
+	double  Uv;
+	double  calibratedValue;
 
-/**
- *	@brief	Print out command line usage.
- */
-void
-printUsage(void);
+	Uv              = inputVariables[kSensirionSFM3100InputVariableIndexUv];
+	calibratedValue = (Uv - (kSensirionSFM3100SensorCalibrationConstantSFM3100constOffset / kSensirionSFM3100SensorCalibrationConstantSFM3100constB)) *
+	                  (kSensirionSFM3100SensorCalibrationConstantSFM3100constA / kSensirionSFM3100SensorCalibrationConstantSFM3100constB) *
+	                  fabs(Uv - (kSensirionSFM3100SensorCalibrationConstantSFM3100constOffset / kSensirionSFM3100SensorCalibrationConstantSFM3100constB));
+	outputVariables[kSensirionSFM3100OutputVariableIndexCalibratedFlow] = calibratedValue;
 
-/**
- *	@brief	Get command line arguments.
- *
- *	@param	argc		: argument count from main().
- *	@param	argv		: argument vector from main().
- *	@param	arguments	: Pointer to struct to store arguments.
- *	@return			: `kCommonConstantReturnTypeSuccess` if successful,
- *				   else `kCommonConstantReturnTypeError`.
- */
-CommonConstantReturnType
-getCommandLineArguments(int argc, char *  argv[], CommandLineArguments *  arguments);
+	return calibratedValue;
+}
