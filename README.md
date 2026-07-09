@@ -19,6 +19,14 @@ If you forgot to clone with `--recursive` and end up with empty submodule direct
 	git submodule update --init
 ```
 
+## Running the application on the Signaloid Cloud Developer Platform
+To run this application on the [Signaloid Cloud Developer Platform](https://signaloid.io),
+you need a Signaloid account. You can sign up for a Signaloid account using [this link](https://get.signaloid.io).
+
+Once you have a Signaloid account, you can click the "add to signaloid.io" button at the
+top of this README to connect this repository to the Signaloid Cloud Developer Platform
+and run the application.
+
 ## Running the application locally
 Apart from using Signaloid's Cloud Compute Platform, you can compile and run this application
 locally. Local execution is essentially a native Monte Carlo implementation,
@@ -30,16 +38,16 @@ next line contains a floating-point value corresponding to an output sample valu
 
 In order to compile and run this application in the native Monte Carlo mode:
 
-1. Install dependencies (e.g., on Linux):
+0. Install dependencies (e.g., on Linux):
 ```
 sudo apt-get install libgsl-dev libgslcblas0
 ```
 1. Compile natively (e.g., on Linux):
 ```
 cd src/
-gcc -I. -I/opt/local/include main.c utilities.c common.c uxhw.c -L/opt/local/lib -o native-exe -lgsl -lgslcblas -lm
+gcc -I. -I/opt/local/include main.c kernel.c utilities.c common.c uxhw.c -L/opt/local/lib -o native-exe -lgsl -lgslcblas -lm
 ```
-1. 46,4: 2. Run the application in the MonteCarlo mode, using (`-M`) command-line option:
+2. Run the application in the MonteCarlo mode, using (`-M`) command-line option:
 ```
 ./native-exe -M 10000
 ```
@@ -98,3 +106,4 @@ Usage: Valid command-line arguments are:
 [^1]: [SFM3100 Low Pressure Drop Analog Flow Meter](https://sensirion.com/media/documents/27637785/626A538D/GF_DS_SFM3100.pdf).
 
 [^2]: [GNU Scientific Library](https://www.gnu.org/software/gsl/).
+

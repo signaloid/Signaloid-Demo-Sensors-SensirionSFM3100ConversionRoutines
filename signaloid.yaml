@@ -1,10 +1,20 @@
 MinimumCore:
     Microarchitecture: Athens
-    CorrelationTracking: Autocorrelation
     MemorySize: 256000
-    Precision: 32 
+    Precision: 32
 
 TraceVariables:
     - File: "main.c"
-      LineNumber: 82
-      Expression: "outputDistributions[0]"
+
+      LineNumber: 62
+
+      Expression: "outputVariables[0:0]"
+
+BenchmarkingVariables:
+    - VariableName: outputVariables[0]
+      VariableDescription: Calibrated Air Flow (SLM)
+      OutputObject: Distribution
+      CommandLineArguments: -S 0
+
+BenchmarkingAllOutputs:
+    - CommandLineArguments: -S 1
