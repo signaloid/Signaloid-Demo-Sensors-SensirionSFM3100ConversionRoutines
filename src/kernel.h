@@ -1,5 +1,5 @@
 /*
- *	Copyright (c) 2026, Signaloid.
+ *	Copyright (c) 2024-2026, Signaloid.
  *
  *	Permission is hereby granted, free of charge, to any person obtaining a copy
  *	of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <stdlib.h>
 
 /*
  *	These constants are based on the example in the SFM3100 datasheet,
@@ -64,3 +65,52 @@ typedef enum
  */
 double
 SensirionSFM3100_calculateOutput(double * inputVariables, double *  outputVariables);
+
+/**
+ *	@brief	Perform a single evaluation of the SFM3100 calibration routine: sample
+ *		the sensor's input voltage distribution and convert it to a calibrated
+ *		flow reading. `UxHwDoubleUniformDist` returns the full input
+ *		distribution in UxHw mode, yielding a distributional calibrated flow;
+ *		in Monte Carlo (compat) mode it returns a single sample, yielding one
+ *		Monte Carlo sample flow reading.
+ *
+ *	@param	outputVariables		: Array of size `kSensirionSFM3100OutputVariableIndexMax` to fill.
+ *	@return	double			: Returns the calibrated flow value.
+ */
+double
+SensirionSFM3100SingleEvaluation(double * outputVariables);
+
+/**
+ *	@brief	UxHw-mode calculation kernel. Computes the calibrated flow output
+ *		using distributional arithmetic on a single evaluation. Writes the
+ *		result into `outputVariables` and the single distributional flow
+ *		value into `monteCarloOutputSamples[0]`.
+ *
+ *		Takes no command-line state: this demo's UxHw path reads no field of
+ *		`CommandLineArguments`, so there is nothing for the caller to unpack.
+ *
+ *	@param	outputVariables		: Array of size `kSensirionSFM3100OutputVariableIndexMax` to fill.
+ *	@param	monteCarloOutputSamples	: Single-element array for the distributional result.
+ *	@return	double			: Returns the calibrated flow value.
+ */
+double
+SensirionSFM3100CalculateOutputUxHw(
+	double *    outputVariables,
+	double *    monteCarloOutputSamples);
+
+/**
+ *	@brief	Monte Carlo calculation kernel. Runs
+ *		`numberOfMonteCarloIterations` independent evaluations into
+ *		`monteCarloOutputSamples` and writes the result of the final
+ *		evaluation into `outputVariables`.
+ *
+ *	@param	numberOfMonteCarloIterations	: Number of Monte Carlo iterations to run.
+ *	@param	outputVariables		: Array of size `kSensirionSFM3100OutputVariableIndexMax` to fill.
+ *	@param	monteCarloOutputSamples	: Array of `numberOfMonteCarloIterations` doubles, filled with samples.
+ *	@return	double			: Returns the calibrated flow value of the final sample.
+ */
+double
+SensirionSFM3100CalculateOutputMonteCarlo(
+	size_t      numberOfMonteCarloIterations,
+	double *    outputVariables,
+	double *    monteCarloOutputSamples);

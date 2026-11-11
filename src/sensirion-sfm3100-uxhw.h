@@ -1,5 +1,5 @@
 /*
- *	Copyright (c) 2026, Signaloid.
+ *	Copyright (c) 2024-2026, Signaloid.
  *
  *	Permission is hereby granted, free of charge, to any person obtaining a copy
  *	of this software and associated documentation files (the "Software"), to deal
@@ -20,34 +20,17 @@
  *	SOFTWARE.
  */
 
-/*
- *	These constants are based on the example in the SFM3100 datasheet,
- *	which has an example with (A/B) = 80 and (Offset/B) == 0.67.
+#pragma once
+
+#include <stdlib.h>
+
+/**
+ *	@brief	Calculate and return the distributional calibrated flow reading of
+ *		the SFM3100 sensor using UxHw distributional arithmetic, from a
+ *		single distributional evaluation of the input voltage.
+ *
+ *	@param	outputVariables	: Array of size `kSensirionSFM3100OutputVariableIndexMax` to fill.
+ *	@return	double		: Returns the distributional calibrated flow value.
  */
-#define kSensorCalibrationConstantSFM3100constA			(80)
-#define kSensorCalibrationConstantSFM3100constB			(1)
-#define kSensorCalibrationConstantSFM3100constOffset		(0.67)
-
-#define kDefaultInputDistributionUvUniformDistLow		(0.7)
-#define kDefaultInputDistributionUvUniformDistHigh		(0.8)
-
-
-/*
- *	Input Distribution:
- *		kInputDistributionIndexAout	: Voltage Flow (in Volt).
- */
-typedef enum
-{
-	kInputDistributionIndexUv	= 0,
-	kInputDistributionIndexMax,
-} InputDistributionIndex;
-
-/*
- *	Output Distribution:
- *		kOutputDistributionIndexCalibratedFlow	: Calibrated Air Flow (in slm).
- */
-typedef enum
-{
-	kOutputDistributionIndexCalibratedFlow	= 0,
-	kOutputDistributionIndexMax,
-} OutputDistributionIndex;
+double
+sensirionSFM3100UxHw(double * outputVariables);
