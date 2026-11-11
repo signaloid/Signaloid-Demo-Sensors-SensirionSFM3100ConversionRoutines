@@ -1,5 +1,5 @@
 /*
- *	Copyright (c) 2026, Signaloid.
+ *	Copyright (c) 2024-2026, Signaloid.
  *
  *	Permission is hereby granted, free of charge, to any person obtaining a copy
  *	of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,6 @@ printUsage(void)
 		"\t[-S, --select-output <output : int>] (Compute 0-indexed output, by default 0.)\n"
 		"\t[-M, --multiple-executions <Number of executions : int (Default: 1)>] (Repeated execute kernel for benchmarking.)\n"
 		"\t[-T, --time] (Timing mode: Times and prints the timing of the kernel execution.)\n"
-		"\t[-b, --benchmarking] (Benchmarking mode: Generate outputs in format for benchmarking.)\n"
 		"\t[-j, --json] (Print output in JSON format.)\n"
 		"\t[-h, --help] (Display this help message.)\n"
 	);
@@ -46,9 +45,16 @@ printUsage(void)
 	return;
 }
 
-static void
+CommonConstantReturnType
 setDefaultCommandLineArguments(CommandLineArguments * arguments)
 {
+	if (arguments == NULL)
+	{
+		fputs("Error: The provided pointer to arguments is NULL.\n", stderr);
+
+		return kCommonConstantReturnTypeError;
+	}
+
 	/*
 	 *	Older GCC versions have a bug which gives a spurious warning for
 	 *	the C universal zero initializer `{0}`. Any workaround makes the
@@ -67,8 +73,40 @@ setDefaultCommandLineArguments(CommandLineArguments * arguments)
 	};
 #pragma GCC diagnostic pop
 
-	return;
+	return kCommonConstantReturnTypeSuccess;
 }
+
+#ifdef NO_OS_AVAILABLE
+CommonConstantReturnType
+setNoOSCommandLineArguments(CommandLineArguments * arguments)
+{
+	if (arguments == NULL)
+	{
+		fputs("Error: The provided pointer to arguments is NULL.\n", stderr);
+
+		return kCommonConstantReturnTypeError;
+	}
+
+	/*
+	 *	Start from the defaults so that every field is initialized, then
+	 *	override the ones the no-OS build fixes. The `common` sub-struct is
+	 *	zeroed by this call, so it is set explicitly below.
+	 */
+	if (setDefaultCommandLineArguments(arguments) != kCommonConstantReturnTypeSuccess)
+	{
+		return kCommonConstantReturnTypeError;
+	}
+
+	arguments->common.numberOfMonteCarloIterations  = 1;
+	arguments->common.outputSelect                  = kSensirionSFM3100OutputVariableIndexMax;
+	arguments->common.isTimingEnabled               = false;
+	arguments->common.isMonteCarloMode              = false;
+	arguments->common.isOutputJSONMode              = false;
+	arguments->common.isWriteToFileEnabled          = false;
+
+	return kCommonConstantReturnTypeSuccess;
+}
+#endif
 
 CommonConstantReturnType
 getCommandLineArguments(
@@ -76,6 +114,19 @@ getCommandLineArguments(
 	char *                  argv[],
 	CommandLineArguments *  arguments)
 {
+#ifdef NO_OS_AVAILABLE
+	/*
+	 *	The no-OS build has no command line to parse, so ignore `argc` and
+	 *	`argv` and use the hard-coded configuration instead.
+	 */
+	(void) argc;
+	(void) argv;
+
+	puts("Using hard coded command line arguments");
+
+	return setNoOSCommandLineArguments(arguments);
+
+#else
 	DemoOption demoSpecificOptions = { 0 };
 
 	if (arguments == NULL)
@@ -85,7 +136,10 @@ getCommandLineArguments(
 		return kCommonConstantReturnTypeError;
 	}
 
-	setDefaultCommandLineArguments(arguments);
+	if (setDefaultCommandLineArguments(arguments) != kCommonConstantReturnTypeSuccess)
+	{
+		return kCommonConstantReturnTypeError;
+	}
 
 	/*
 	 *	This application example has no application specific arguments.
@@ -138,17 +192,19 @@ getCommandLineArguments(
 		arguments->common.outputSelect = kSensirionSFM3100OutputVariableIndexCalibratedFlow;
 	}
 
-	if (arguments->common.outputSelect >= kSensirionSFM3100OutputVariableIndexMax)
+	if (arguments->common.outputSelect > kSensirionSFM3100OutputVariableIndexMax)
 	{
 		fprintf(
 			stderr,
-			"Output select value (-S option) should be less than the possible number of outputs: Provided %zd. Max: %d\n",
+			"Output select value (-S option) is greater than the possible number of outputs: Provided %zd. Max: %d\n",
 			arguments->common.outputSelect,
-			kSensirionSFM3100OutputVariableIndexMax - 1
+			kSensirionSFM3100OutputVariableIndexMax
 		);
 
 		return kCommonConstantReturnTypeError;
 	}
 
 	return kCommonConstantReturnTypeSuccess;
+
+#endif
 }

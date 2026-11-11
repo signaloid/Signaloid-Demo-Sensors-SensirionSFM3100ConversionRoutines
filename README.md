@@ -2,7 +2,7 @@
 [<img src="https://assets.signaloid.io/add-to-signaloid-cloud-logo-light-latest.png#gh-light-mode-only" alt="[Add to signaloid.io]" height="30">](https://signaloid.io/repositories?connect=https://github.com/signaloid/Signaloid-Demo-Sensors-SensirionSFM3100ConversionRoutines#gh-light-mode-only)
 
 # Sensirion SFM3100 Low Pressure Drop Analog Flow Meter Use Case
-Example demonstrating real-time output uncertainty estimation for calibrated ADC values from the SFM3100 sensor[^1].
+Example demonstrating real-time output distribution estimation for calibrated ADC values from the SFM3100 sensor[^1].
 
 ## Introduction
 The SFM3100 is a low pressure drop analog flow meter.
@@ -44,12 +44,11 @@ sudo apt-get install libgsl-dev libgslcblas0
 ```
 1. Compile natively (e.g., on Linux):
 ```
-cd src/
-gcc -I. -I/opt/local/include main.c kernel.c utilities.c common.c uxhw.c -L/opt/local/lib -o native-exe -lgsl -lgslcblas -lm
+make local-build
 ```
-2. Run the application in the MonteCarlo mode, using (`-M`) command-line option:
+2. Run the application in the Monte Carlo mode, using the `-M` command-line option:
 ```
-./native-exe -M 10000
+./demo-native-mc -M 10000
 ```
 The above program runs 10000 Monte Carlo iterations.
 
@@ -61,7 +60,7 @@ cat data.out
 ## Inputs
 The only input to the SFM3100 sensor conversion algorithm is the raw ADC taken from the voltage flow output signal of the sensor ($U_\mathrm{V}$).
 
-The uncertainty in $U_\mathrm{V}$ is modeled as a (`UniformDist(0.7, 0.8)`) Volts.
+The distribution of $U_\mathrm{V}$ is modeled as a (`UniformDist(0.7, 0.8)`) Volts.
 
 This use case demo does not implement the temperature conversion (see the lookup table plot on page 5 of the SFM3100 datasheet) and also does not yet implement the oxygen flow conversion (see Appendix B of the SFM3100 datasheet).
 
@@ -95,7 +94,6 @@ Usage: Valid command-line arguments are:
 	[-S, --select-output <output : int>] (Compute 0-indexed output, by default 0.)
 	[-M, --multiple-executions <Number of executions : int (Default: 1)>] (Repeated execute kernel for benchmarking.)
 	[-T, --time] (Timing mode: Times and prints the timing of the kernel execution.)
-	[-b, --benchmarking] (Benchmarking mode: Generate outputs in format for benchmarking.)
 	[-j, --json] (Print output in JSON format.)
 	[-h, --help] (Display this help message.)
 ```
@@ -103,7 +101,7 @@ Usage: Valid command-line arguments are:
 
 ---
 
-[^1]: [SFM3100 Low Pressure Drop Analog Flow Meter](https://sensirion.com/media/documents/27637785/626A538D/GF_DS_SFM3100.pdf).
+[^1]: [SFM3100 Low Pressure Drop Analog Flow Meter](https://sensirion.com/media/documents/27637785/6A71EB6F/GF_DS_SFM3100.pdf).
 
 [^2]: [GNU Scientific Library](https://www.gnu.org/software/gsl/).
 

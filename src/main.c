@@ -1,5 +1,5 @@
 /*
- *	Copyright (c) 2026, Signaloid.
+ *	Copyright (c) 2024-2026, Signaloid.
  *
  *	Permission is hereby granted, free of charge, to any person obtaining a copy
  *	of this software and associated documentation files (the "Software"), to deal
@@ -28,71 +28,62 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <string.h>
-#include <uxhw.h>
 #include "utilities.h"
 #include "kernel.h"
+#include "common.h"
 
-/**
- *	@brief  Sets the Input Variables via call to UxHw Parametric function.
- *
- *	@param  inputVariables	: An array of double values, where the function writes the distributional data.
- */
-static void
-setInputVariablesViaUxHwCall(double * inputVariables)
-{
-	inputVariables[kSensirionSFM3100InputVariableIndexUv] = UxHwDoubleUniformDist(
-		kSensirionSFM3100DefaultInputDistributionUvUniformDistLow,
-		kSensirionSFM3100DefaultInputDistributionUvUniformDistHigh
-	);
+#ifdef NO_OS_AVAILABLE
 
-	return;
-}
+void
+returnZeroNoOS(void);
+#endif
 
 int
 main(int argc, char *  argv[])
 {
-	CommandLineArguments arguments = { 0 };
+	CommandLineArguments        arguments;
+	double *                    monteCarloOutputSamples = NULL;
+	clock_t                     start               = 0;
+	clock_t                     end                 = 0;
+	double                      cpuTimeUsedSeconds  = 0.0;
+	double                      outputVariables[kSensirionSFM3100OutputVariableIndexMax] = { 0 };
+	const char *                outputVariableNames[kSensirionSFM3100OutputVariableIndexMax] = {
+		[kSensirionSFM3100OutputVariableIndexCalibratedFlow] = "calibratedSensorOutput",
+	};
+	const char *                outputVariableDescriptions[kSensirionSFM3100OutputVariableIndexMax] = {
+		[kSensirionSFM3100OutputVariableIndexCalibratedFlow] = "Calibrated Air Flow (SLM)",
+	};
+	kOutputVariableTypeIndex    outputVariableTypes[kSensirionSFM3100OutputVariableIndexMax] = {
+		[kSensirionSFM3100OutputVariableIndexCalibratedFlow] = kOutputVariableTypeDistribution,
+	};
+	const char *                applicationDescription = "Sensirion SFM3100 Conversion Routines";
+	MeanAndVariance             meanAndVariance;
 
-	double          calibratedSensorOutput;
-	double *        monteCarloOutputSamples = NULL;
-	clock_t         start;
-	clock_t         end;
-	double          cpuTimeUsedSeconds;
-	double          inputVariables[kSensirionSFM3100InputVariableIndexMax];
-	double          outputVariables[kSensirionSFM3100OutputVariableIndexMax];
-	const char *    outputVariableNames[kSensirionSFM3100OutputVariableIndexMax] = {
-		"calibratedSensorOutput"
-	};
-	const char *    outputVariableDescriptions[kSensirionSFM3100OutputVariableIndexMax] = {
-		"Calibrated Air Flow (SLM)"
-	};
-	const char *    applicationDescription = "Sensirion SFM3100 Conversion Routines";
-	MeanAndVariance meanAndVariance;
-#ifdef NO_OS_AVAILABLE
-	puts("Using hard coded command line arguments");
-	arguments.common.numberOfMonteCarloIterations = 1;
-	arguments.common.outputSelect = kOutputDistributionIndexMax;
-	arguments.common.isTimingEnabled = false;
-	arguments.common.isMonteCarloMode = false;
-	arguments.common.isBenchmarkingMode = false;
-	arguments.common.isOutputJSONMode = false;
-#else
 	/*
-	 *	Get command line arguments.
+	 *	Get command-line arguments. In the no-OS build there is no command
+	 *	line, so this instead applies the hard-coded configuration in
+	 *	`setNoOSCommandLineArguments()`.
 	 */
 	if (getCommandLineArguments(argc, argv, &arguments))
 	{
 		return kCommonConstantReturnTypeError;
 	}
-#endif
-	if (arguments.common.isMonteCarloMode)
-	{
-		monteCarloOutputSamples = (double *) checkedMalloc(
-			arguments.common.numberOfMonteCarloIterations * sizeof(double),
-			__FILE__,
-			__LINE__
-		);
-	}
+
+	/*
+	 *	MonteCarlo output samples are used even in the UxHw use case to store
+	 *	the result of the single distributional evaluation.
+	 */
+	monteCarloOutputSamples = (double *) checkedMalloc(
+		(arguments.common.numberOfMonteCarloIterations > 0 ? arguments.common.numberOfMonteCarloIterations : 1) * sizeof(double),
+		__FILE__,
+		__LINE__
+	);
+
+	const bool isScalarOutputSelected = isSelectedOutputScalar(
+		&arguments.common,
+		outputVariableTypes,
+		kSensirionSFM3100OutputVariableIndexMax
+	);
 
 	/*
 	 *	Start timing.
@@ -102,37 +93,41 @@ main(int argc, char *  argv[])
 		start = clock();
 	}
 
-	for (size_t ii = 0; ii < arguments.common.numberOfMonteCarloIterations; ii++)
-	{
-		/*
-		 *	Set input distribution values, inside the main computation
-		 *	loop, so that it can also generate samples in the native
-		 *	Monte Carlo Execution Mode.
-		 */
-		setInputVariablesViaUxHwCall(inputVariables);
-
-		calibratedSensorOutput = SensirionSFM3100_calculateOutput(inputVariables, outputVariables);
-
-		/*
-		 *	For this application, calibratedSensorOutput is the item we track.
-		 */
-		if (arguments.common.isMonteCarloMode)
-		{
-			monteCarloOutputSamples[ii] = calibratedSensorOutput;
-		}
-	}
-
 	/*
-	 *	If not doing Laplace version, then approximate the cost of the third phase of
-	 *	Monte Carlo (post-processing), by calculating the mean and variance.
+	 *	Dispatch to the mode-specific kernel.
+	 *	`SensirionSFM3100CalculateOutputMonteCarlo` forwards to
+	 *	`sensirionSFM3100MonteCarlo`, which runs the Monte Carlo loop;
+	 *	`SensirionSFM3100CalculateOutputUxHw` forwards to
+	 *	`sensirionSFM3100UxHw`, which runs a single distributional evaluation.
+	 *	Both wrappers take what they need as scalars — the UxHw path needs
+	 *	nothing at all — so this is the only place that unpacks
+	 *	`CommandLineArguments` for the kernel.
 	 */
 	if (arguments.common.isMonteCarloMode)
 	{
-		meanAndVariance = calculateMeanAndVarianceOfDoubleSamples(
-			monteCarloOutputSamples,
-			arguments.common.numberOfMonteCarloIterations
+		SensirionSFM3100CalculateOutputMonteCarlo(
+			arguments.common.numberOfMonteCarloIterations,
+			outputVariables,
+			monteCarloOutputSamples
 		);
-		calibratedSensorOutput = meanAndVariance.mean;
+
+		/*
+		 *	If not doing the UxHw version, then approximate the cost of the
+		 *	third phase of Monte Carlo (post-processing), by calculating the
+		 *	mean and variance.
+		 */
+		if (!isScalarOutputSelected)
+		{
+			meanAndVariance = calculateMeanAndVarianceOfDoubleSamples(
+				monteCarloOutputSamples,
+				arguments.common.numberOfMonteCarloIterations
+			);
+			outputVariables[kSensirionSFM3100OutputVariableIndexCalibratedFlow] = meanAndVariance.mean;
+		}
+	}
+	else
+	{
+		SensirionSFM3100CalculateOutputUxHw(outputVariables, monteCarloOutputSamples);
 	}
 
 	/*
@@ -155,7 +150,8 @@ main(int argc, char *  argv[])
 			outputVariables,
 			outputVariableNames,
 			kSensirionSFM3100OutputVariableIndexMax,
-			applicationDescription
+			applicationDescription,
+			outputVariableTypes
 		);
 	}
 	else
@@ -166,7 +162,8 @@ main(int argc, char *  argv[])
 			outputVariables,
 			outputVariableNames,
 			outputVariableDescriptions,
-			monteCarloOutputSamples
+			monteCarloOutputSamples,
+			outputVariableTypes
 		);
 	}
 
@@ -195,8 +192,7 @@ main(int argc, char *  argv[])
 	}
 
 	/*
-	 *	Save Monte carlo outputs in an output file.
-	 *	Free dynamically-allocated memory.
+	 *	Save Monte Carlo outputs in an output file.
 	 */
 	if (arguments.common.isMonteCarloMode)
 	{
@@ -204,12 +200,18 @@ main(int argc, char *  argv[])
 			monteCarloOutputSamples, (uint64_t) (cpuTimeUsedSeconds * 1000000),
 			arguments.common.numberOfMonteCarloIterations
 		);
-
-		free(monteCarloOutputSamples);
 	}
+
+	/*
+	 *	Free dynamically-allocated memory.
+	 */
+	free(monteCarloOutputSamples);
+
 #ifdef NO_OS_AVAILABLE
 	returnZeroNoOS();
 #else
+
 	return 0;
+
 #endif
 }
